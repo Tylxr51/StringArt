@@ -24,16 +24,16 @@ from PIL import Image
     
 
 t = 0
-w = 850
-h = 850
+w = 900
+h = 900
 r = w/3
 pegcount = 720
 window = Window(w, h, 'String art')
 circle1 = shapes.Circle(w/2, h/2, r, color = (0,0,0))
 circle2 = shapes.Circle(w/2, h/2, r-1, color = (255, 255, 255))
 bg = image.create(w, h, image.SolidColorImagePattern((255,255,255,255)))
-pixel_array = np.array(Image.open("jamie.jpg").convert('L'), dtype = 'i')
-pixel_array_2 = np.array(Image.open("red_woman_lips.jpg").convert('L'), dtype = 'i')
+pixel_array = np.array(Image.open("lecture.jpg").convert('L'), dtype = 'i')
+#pixel_array_2 = np.array(Image.open("red_woman_lips.jpg").convert('L'), dtype = 'i')
 batch = Batch()
 lines = []
 calculated_lines = {}
@@ -52,10 +52,10 @@ pegys = [cx+r*np.sin(2*np.pi*(i)/pegcount) for i in range(pegcount)]
 @window.event
 def on_draw():
     window.clear()
-    bg.blit(0,0)
-    circle1.draw()
+    #bg.blit(0,0)
+    #circle1.draw()
     circle2.draw()
-    draw_pegs()
+    #draw_pegs()
     batch.draw()
     
 
@@ -150,31 +150,56 @@ def gold_func(peg1, peg2):
 
 def golden_search(peg1):
     tol, maxiter = 0.8, 100
-    a, b, golden = 0, pegcount-1, (1 + np.sqrt(5)) / 2
+    golden = (1 + np.sqrt(5)) / 2
     func = gold_func
+    chunks = 3
 
-    c = int(round(b - (b - a) / golden,0))
-    d = int(round(a + (b - a) / golden,0))
-    fc, fd = func(peg1, c), func(peg1, d)
-
-    for i in range(maxiter):
-        if fc < fd:
-            a, c, fc = c, d, fd
-            d = int(round(a + (b - a) / golden,0))
-            fd = func(peg1, d)
-
-            if abs(c - d) < tol:
-                return  (peg1, (d + peg1) % pegcount)
-
-        else:
-            b, d, fd = d, c, fc
-            c = int(round(b - (b - a) / golden,0))
-            fc = func(peg1, c)
-
-            if abs(c - d) < tol:
-                return (peg1, (c + peg1) % pegcount)
+    nodes = np.linspace(0, pegcount - 1, chunks+1)
+    boundaries = [[np.ceil(nodes[n]), np.floor(nodes[n+1])] for n in range(chunks)]
+    boundaries = [[nodes[0], np.floor(nodes[1])], 
+                  [np.ceil(nodes[1]), np.floor(nodes[2])], 
+                  [np.ceil(nodes[2]), nodes[3]]]
     
-    return (peg1, (c + peg1) % pegcount)
+    x_max = []
+    f_max = []
+
+    for j, k in enumerate(boundaries):
+
+        a = k[0]
+        b = k[1]
+
+        c = int(round(b - (b - a) / golden,0))
+        d = int(round(a + (b - a) / golden,0))
+        fc, fd = func(peg1, c), func(peg1, d)
+
+        for i in range(maxiter):
+            if fc < fd:
+                a, c, fc = c, d, fd
+                d = int(round(a + (b - a) / golden,0))
+                fd = func(peg1, d)
+
+                if abs(c - d) < tol:
+                    f_max.append(fd)
+                    x_max.append((d + peg1) % pegcount)
+                    break
+
+            else:
+                b, d, fd = d, c, fc
+                c = int(round(b - (b - a) / golden,0))
+                fc = func(peg1, c)
+
+                if abs(c - d) < tol:
+                    f_max.append(fc)
+                    x_max.append((c + peg1) % pegcount)
+                    break
+
+        if len(f_max) <= j:
+            f_max.append(func(peg1, c))
+            x_max.append((c + peg1) % pegcount)
+    
+    x = x_max[np.argmax(f_max)]
+
+    return (peg1, x)
 
 
 def greedy(peg1):
