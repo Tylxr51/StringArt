@@ -149,16 +149,13 @@ def gold_func(peg1, peg2):
     return line_total
 
 def golden_search(peg1):
-    tol, maxiter = 0.8, 100
+    tol, maxiter = 0.9, 20
     golden = (1 + np.sqrt(5)) / 2
     func = gold_func
     chunks = 3
 
     nodes = np.linspace(0, pegcount - 1, chunks+1)
     boundaries = [[np.ceil(nodes[n]), np.floor(nodes[n+1])] for n in range(chunks)]
-    boundaries = [[nodes[0], np.floor(nodes[1])], 
-                  [np.ceil(nodes[1]), np.floor(nodes[2])], 
-                  [np.ceil(nodes[2]), nodes[3]]]
     
     x_max = []
     f_max = []
