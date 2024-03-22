@@ -1,6 +1,6 @@
 import numpy as np
-import random
 import pyglet
+import random
 from pyglet.window import Window
 from pyglet import app
 from pyglet import clock
@@ -27,12 +27,12 @@ t = 0
 w = 900
 h = 900
 r = w/3
-pegcount = 720
+pegcount = 300
 window = Window(w, h, 'String art')
 circle1 = shapes.Circle(w/2, h/2, r, color = (0,0,0))
 circle2 = shapes.Circle(w/2, h/2, r-1, color = (255, 255, 255))
 bg = image.create(w, h, image.SolidColorImagePattern((255,255,255,255)))
-pixel_array = np.array(Image.open("lecture.jpg").convert('L'), dtype = 'i')
+pixel_array = np.array(Image.open("tim.jpg").convert('L'), dtype = 'i')
 #pixel_array_2 = np.array(Image.open("red_woman_lips.jpg").convert('L'), dtype = 'i')
 batch = Batch()
 lines = []
@@ -130,8 +130,8 @@ def calculate_pixels(p1, p2):
 
     return pixels_hit
 
-def screenshot():
-    pyglet.image.get_buffer_manager().get_color_buffer().save('Screenshots/output'+datetime.now().strftime("%H:%M:%S")+'.png')
+def screenshot(t):
+    pyglet.image.get_buffer_manager().get_color_buffer().save('Screenshots/output'+datetime.now().strftime("%H:%M:%S")+' t:'+str(t)+'.png')
 
 def dict_check(peg1, peg2):
     if str(peg1)+'-'+str(peg2) not in calculated_lines:
@@ -141,7 +141,7 @@ def dict_check(peg1, peg2):
 
 
 
-def gold_func(peg1, peg2):
+def algo_func(peg1, peg2):
     peg2 = (peg2 + peg1) % pegcount
     if peg2 < peg1: peg1, peg2 = (peg2, peg1)
     dict_check(peg1, peg2)
@@ -151,7 +151,7 @@ def gold_func(peg1, peg2):
 def golden_search(peg1):
     tol, maxiter = 0.9, 20
     golden = (1 + np.sqrt(5)) / 2
-    func = gold_func
+    func = algo_func
     chunks = 3
 
     nodes = np.linspace(0, pegcount - 1, chunks+1)
@@ -199,6 +199,69 @@ def golden_search(peg1):
     return (peg1, x)
 
 
+
+def jarratt(peg1):
+    tol, maxiter = 0.9, 20
+    chunks = 3
+    func = algo_func
+
+    nodes = np.linspace(0, pegcount - 1, chunks+1)
+    boundaries = [[np.ceil(nodes[n]), np.floor(nodes[n+1])] for n in range(chunks)]
+    
+    x_max = []
+    f_max = []
+
+    for j, k in enumerate(boundaries):
+
+        optimal = [peg1, 0]
+
+        x0 = int(k[0])
+        x1 = int(k[1])
+        x2 = int((x0+x1) / 2)
+
+        y0 = func(peg1, x0)
+        y1 = func(peg1, x1)
+        y2 = func(peg1, x2)
+
+
+        for i in range(maxiter):
+            if x0 == x1 or x0 == x2  or x1 == x2:
+                optimal = [peg1,0]        # Divide by 0 error, skip this line to avoid error
+                break
+            
+            try: x3 = int(x2 + 0.5 * ((((x1 - x2)**2 * (y2 - y0)) + ((x0 - x2)**2 * (y1 - y2))) / (((x1 - x2) * (y2 - y0)) + ((x0 - x2) * (y1 - y2)))))
+            except: 
+                optimal = [peg1, 0]
+                break
+            y3 = func(peg1, x3)
+
+            if y3 >= optimal[1]:
+                optimal = [x3, y3]
+
+            if abs(x3 - x2) < tol:
+                f_max.append(func(peg1, optimal[0]))
+                x_max.append((optimal[0] + peg1) % pegcount)
+                break
+
+            if x3 < x2:
+                x1, x2 = (x2, x3)
+                y1, y2 = (y2, y3)
+
+            else:
+                x0, x2 = (x2, x3)  
+                y0, y2 = (y2, y3)  
+
+
+        if len(f_max) <= j:
+            f_max.append(func(peg1, optimal[0]))
+            x_max.append((optimal[0] + peg1) % pegcount)
+
+    x = x_max[np.argmax(f_max)]
+
+    return (peg1, x)
+
+
+
 def greedy(peg1):
     for i in range(pegcount):
         peg2 = (peg1 + i) % pegcount
@@ -228,7 +291,10 @@ def update(dt):
         try: peg1 = best_line[1]
         except: peg1 = 0
     
-        best_line = golden_search(peg1)
+        best_line = jarratt(peg1)
+        while best_line == None:
+            best_line = jarratt(random.randint(0,pegcount))
+        #best_line = golden_search(peg1)
         #best_line = greedy(peg1)
         
         draw_line(best_line[0], best_line[1], (0,0,0))
