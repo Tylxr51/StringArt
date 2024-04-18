@@ -27,7 +27,7 @@ t = 0
 w = 900
 h = 900
 r = w/3
-pegcount = 300
+pegcount = 720
 window = Window(w, h, 'String art')
 circle1 = shapes.Circle(w/2, h/2, r, color = (0,0,0))
 circle2 = shapes.Circle(w/2, h/2, r-1, color = (255, 255, 255))
@@ -148,6 +148,7 @@ def algo_func(peg1, peg2):
     line_total = calculate_line_total(str(peg1)+'-'+str(peg2))
     return line_total
 
+
 def golden_search(peg1):
     tol, maxiter = 0.9, 20
     golden = (1 + np.sqrt(5)) / 2
@@ -169,7 +170,7 @@ def golden_search(peg1):
         d = int(round(a + (b - a) / golden,0))
         fc, fd = func(peg1, c), func(peg1, d)
 
-        for i in range(maxiter):
+        for _ in range(maxiter):
             if fc < fd:
                 a, c, fc = c, d, fd
                 d = int(round(a + (b - a) / golden,0))
@@ -198,8 +199,6 @@ def golden_search(peg1):
 
     return (peg1, x)
 
-
-
 def jarratt(peg1):
     tol, maxiter = 0.9, 20
     chunks = 3
@@ -224,7 +223,7 @@ def jarratt(peg1):
         y2 = func(peg1, x2)
 
 
-        for i in range(maxiter):
+        for _ in range(maxiter):
             if x0 == x1 or x0 == x2  or x1 == x2:
                 optimal = [peg1,0]        # Divide by 0 error, skip this line to avoid error
                 break
@@ -233,6 +232,7 @@ def jarratt(peg1):
             except: 
                 optimal = [peg1, 0]
                 break
+
             y3 = func(peg1, x3)
 
             if y3 >= optimal[1]:
@@ -260,7 +260,93 @@ def jarratt(peg1):
 
     return (peg1, x)
 
+def brent(peg1):
+    tol, maxiter = 0.9, 20
+    chunks = 3
+    func = algo_func
 
+    nodes = np.linspace(0, pegcount - 1, chunks+1)
+    boundaries = [[np.ceil(nodes[n]), np.floor(nodes[n+1])] for n in range(chunks)]
+    
+    x_max = []
+    f_max = []
+
+    for j, k in enumerate(boundaries):
+
+        optimal = [peg1, 0]
+
+        a = int(k[0])
+        b = int(k[1])
+        e = 0
+        uprev = 0
+
+        v = w = x = int(a + ((3 - np.sqrt(5)) / 2) * (b - a))
+        fv = fw = fx = func(peg1, x)
+
+
+        for _ in range(maxiter):
+
+            m = (1/2) * (a + b)
+
+            # Jarratt or Golden
+            if not(v == w or v == x or w == x):
+                r = (x - w) * (fx - fv)
+                q = (x - v) * (fx - fw)
+                p = (x - v) * q - (x - w) * r
+                q = 2 * (q - r)
+                if q > 0: p = -p
+                else: q = -q
+
+                inferr = False
+                try: u = int(x + (p / q))
+                except: inferr = True
+
+                if u > int(k[1]) or u < int(k[0]) or inferr == True:
+                    e = b - x if x < m else a - x
+                    u = int(x + (((3 - np.sqrt(5)) / 2) * e))
+                
+                fu = func(peg1, u)
+
+            else:
+                e = b - x if x < m else a - x
+                u = int(x + (((3 - np.sqrt(5)) / 2) * e))
+                fu = func(peg1, u)
+                
+
+            if fx >= optimal[1]:
+                optimal = [x, fx]
+
+
+            # Update variables      
+            if fu >= fx:
+                if u < x: b = x
+                else: a = x
+                v, fv, w, fw, x, fx = w, fw, x, fx, u, fu
+            else:
+                if u < x: a = u
+                else: b = u
+
+                if fu >= fw or w == x:
+                    v, fv, w, fw = w, fw, u, fu
+                elif fu >= fv or v == x or v == w:
+                    v, fv = u, fu
+
+
+            if abs(u - uprev) < tol:
+                f_max.append(func(peg1, optimal[0]))
+                x_max.append((optimal[0] + peg1) % pegcount)
+                break
+
+            uprev = u
+
+
+        if len(f_max) <= j:
+            f_max.append(func(peg1, optimal[0]))
+            x_max.append((optimal[0] + peg1) % pegcount)
+
+    x_out = x_max[np.argmax(f_max)]
+
+    return (peg1, x_out)
 
 def greedy(peg1):
     for i in range(pegcount):
@@ -291,9 +377,8 @@ def update(dt):
         try: peg1 = best_line[1]
         except: peg1 = 0
     
+        #best_line =  brent(peg1)
         best_line = jarratt(peg1)
-        while best_line == None:
-            best_line = jarratt(random.randint(0,pegcount))
         #best_line = golden_search(peg1)
         #best_line = greedy(peg1)
         
